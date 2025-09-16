@@ -1,0 +1,813 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+   Name = "Куни HUB",
+   Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
+   LoadingTitle = "Rayfield Interface Suite",
+   LoadingSubtitle = "by Куни",
+   ShowText = "Rayfield", -- for mobile users to unhide rayfield, change if you'd like
+   Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
+
+   ToggleUIKeybind = "K", -- The keybind to toggle the UI visibility (string like "K" or Enum.KeyCode)
+
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
+
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = nil, -- Create a custom folder for your hub/game
+      FileName = "Big Hub"
+   },
+
+   Discord = {
+      Enabled = false, -- Prompt the user to join your Discord server if their executor supports it
+      Invite = "noinvitelink", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ ABCD would be ABCD
+      RememberJoins = true -- Set this to false to make them join the discord every time they load it up
+   },
+
+   KeySystem = false, -- Set this to true to use our key system
+   KeySettings = {
+      Title = "Untitled",
+      Subtitle = "Key System",
+      Note = "No method of obtaining the key is provided", -- Use this to tell the user how to get a key
+      FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
+      SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
+      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
+      Key = {"Hello"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
+   }
+})
+local Tab = Window:CreateTab("Куни блоб", "rewind")
+local function GetPlayers()
+        local players = game:GetService("Players"):GetPlayers()
+        local playerNames = {}
+        
+        for _, player in ipairs(players) do
+            table.insert(playerNames, player.Name.." ".." ("..player.DisplayName..")")
+
+        end
+return playerNames
+    end
+	local selectedPlrName
+local Dropdown1 = Tab:CreateDropdown({
+   Name = "target",
+   Options = GetPlayers(),
+   CurrentOption = {nil},
+   MultipleOptions = false,
+   Flag = "Dropdown1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Options)
+local e2 = tostring(Options[1])
+local e1 = string.split(e2, " ")
+local e = e1[1]
+    selectedPlrName = e
+end,
+})
+local plr = game.Players.LocalPlayer 
+local char = plr.Character or plr.CharacterAdded:Wait()
+local hum = char:WaitForChild("Humanoid")
+local function FindBlob()
+    local seat = hum.SeatPart
+    if seat then
+        return seat:FindFirstAncestor("CreatureBlobman")
+    end
+    return nil
+end 
+local loopkick
+local Toggle = Tab:CreateToggle({
+   Name = "блоб килл[таргет]",
+   CurrentValue = false,
+   Flag = "Toggle1",
+   Callback = function(Value)
+        loopkick = Value
+        local connection
+        
+        local function kickPlayer()
+            local plr = game.Players:FindFirstChild(selectedPlrName)
+            if not plr then return end
+            
+            -- Ждем пока игрок появится или возродится
+            if not plr.Character then
+                plr.CharacterAdded:Wait()
+                task.wait(1) -- Ждем полного появления персонажа
+            end
+            
+            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            local blob = FindBlob()
+            if not blob then return end
+            
+            -- 1. Телепортируемся к игроку
+            local myCharacter = game.Players.LocalPlayer.Character
+            if myCharacter then
+                local myHrp = myCharacter:FindFirstChild("HumanoidRootPart")
+                if myHrp then
+                    myHrp.CFrame = hrp.CFrame * CFrame.new(0, 3, 0) -- телепорт к игроку +3 studs выше
+                end
+            end
+            
+            -- Ждем 0.2 секунды перед Grab
+            task.wait(0.2)
+            
+            -- 2. Grab игрока
+            blob.BlobmanSeatAndOwnerScript.CreatureGrab:FireServer(
+                blob.LeftDetector,
+                hrp, 
+                blob.LeftDetector.LeftWeld
+            )
+            
+            -- Ждем немного чтобы граб зарегистрировался
+            task.wait(0.3)
+            
+            -- 3. Телепорт ниже уровня уничтожения
+            workspace.FallenPartsDestroyHeight = -200000
+            
+            local player = game.Players.LocalPlayer
+            local character = player.Character
+            if not character then
+                character = player.CharacterAdded:Wait()
+            end
+            
+            local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+            
+            -- Сохраняем исходную позицию
+            local originalPosition = humanoidRootPart.Position
+            
+            -- Телепортируем вниз
+            local targetPosition = Vector3.new(
+                originalPosition.X,
+                -9990,
+                originalPosition.Z
+            )
+            
+            humanoidRootPart.CFrame = CFrame.new(targetPosition)
+            
+            -- Ждем немного и возвращаем обратно
+            task.wait(0.5)
+            humanoidRootPart.CFrame = CFrame.new(originalPosition)
+            workspace.FallenPartsDestroyHeight = -500 -- Восстанавливаем стандартную высоту
+        end
+        
+        if Value then
+            -- Запускаем основной цикл
+            spawn(function()
+                while loopkick do
+                    local plr = game.Players:FindFirstChild(selectedPlrName)
+                    if plr then
+                        -- Отслеживаем возрождение игрока
+                        if connection then
+                            connection:Disconnect()
+                        end
+                        
+                        connection = plr.CharacterAdded:Connect(function()
+                            if loopkick then
+                                task.wait(2) -- Ждем 2 секунды после возрождения
+                                kickPlayer() -- Запускаем снова
+                            end
+                        end)
+                        
+                        -- Выполняем первый раз
+                        kickPlayer()
+                        
+                        -- Ждем пока игрок умрет или тоггл выключится
+                        while loopkick and plr.Character do
+                            task.wait(0.1)
+                        end
+                    else
+                        task.wait(1)
+                    end
+                end
+            end)
+        else
+            -- Отключаем соединение при выключении
+            if connection then
+                connection:Disconnect()
+                connection = nil
+            end
+            -- Восстанавливаем стандартную высоту уничтожения
+            workspace.FallenPartsDestroyHeight = -500
+        end
+   end,
+})
+local Button = Tab:CreateButton({
+   Name = "Граб и телепорт[кнопка]",
+   Callback = function()
+        -- Находим игрока
+        local plr = game.Players:FindFirstChild(selectedPlrName)
+        if not plr then return end
+        if not plr.Character then return end
+        local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local blob = FindBlob()
+        if not blob then return end
+        
+        -- 1. Сначала телепортируемся к игроку
+        local myCharacter = game.Players.LocalPlayer.Character
+        if myCharacter then
+            local myHrp = myCharacter:FindFirstChild("HumanoidRootPart")
+            if myHrp then
+                myHrp.CFrame = hrp.CFrame * CFrame.new(0, 3, 0) -- телепорт к игроку +3 studs выше
+                task.wait(0.5) -- увеличена задержка после телепорта
+            end
+        end
+        
+        -- 2. Потом Grab игрока
+        blob.BlobmanSeatAndOwnerScript.CreatureGrab:FireServer(
+            blob.LeftDetector,
+            hrp, 
+            blob.LeftDetector.LeftWeld
+        )
+        
+        -- Ждем немного чтобы граб зарегистрировался
+        task.wait(0.5) -- увеличена задержка после граба
+        
+        -- 3. Телепорт ниже уровня уничтожения
+        workspace.FallenPartsDestroyHeight = -200000
+        
+        local player = game.Players.LocalPlayer
+        local character = player.Character
+        if not character then
+            character = player.CharacterAdded:Wait()
+        end
+        
+        local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+        
+        -- Сохраняем исходную позицию
+        local originalPosition = humanoidRootPart.Position
+        
+        -- Телепортируем вниз
+        local targetPosition = Vector3.new(
+            originalPosition.X,
+            -9990,
+            originalPosition.Z
+        )
+        
+        humanoidRootPart.CFrame = CFrame.new(targetPosition)
+        
+        -- Ждем немного и возвращаем обратно
+        task.wait(0.5)
+        humanoidRootPart.CFrame = CFrame.new(originalPosition)
+   end,
+})
+local Button = Tab:CreateButton({
+   Name = "прыжок grab",
+   Callback = function()
+        local plr = game.Players:FindFirstChild(selectedPlrName)
+        if not plr then return end
+        local hrp = plr.Character.HumanoidRootPart
+        local blob = FindBlob()
+        
+        -- Один граб
+        blob.BlobmanSeatAndOwnerScript.CreatureGrab:FireServer(
+            blob.LeftDetector,
+            hrp, 
+            blob.LeftDetector.LeftWeld
+        )
+        
+        -- Немного ждем чтобы граб зарегистрировался
+        task.wait(0.1)
+        
+        -- Заставляем прыгнуть и blobmen и нашего персонажа
+        local ourCharacter = game.Players.LocalPlayer.Character
+        if ourCharacter then
+            local ourHumanoid = ourCharacter:FindFirstChild("Humanoid")
+            if ourHumanoid then
+                ourHumanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+            
+            -- Также применяем силу к нашему персонажу
+            local ourRoot = ourCharacter:FindFirstChild("HumanoidRootPart")
+            if ourRoot then
+                local bodyVelocity = Instance.new("BodyVelocity")
+                bodyVelocity.Velocity = Vector3.new(0, 50, 0)
+                bodyVelocity.MaxForce = Vector3.new(0, 5000, 0)
+                bodyVelocity.Parent = ourRoot
+                
+                task.delay(0.3, function()
+                    bodyVelocity:Destroy()
+                end)
+            end
+        end
+        
+        -- Также применяем силу к blobmen
+        local blobPrimary = blob.PrimaryPart or blob:FindFirstChildWhichIsA("BasePart")
+        if blobPrimary then
+            local blobVelocity = Instance.new("BodyVelocity")
+            blobVelocity.Velocity = Vector3.new(0, 50, 0)
+            blobVelocity.MaxForce = Vector3.new(0, 5000, 0)
+            blobVelocity.Parent = blobPrimary
+            
+            task.delay(0.3, function()
+                blobVelocity:Destroy()
+            end)
+        end
+   end,
+})
+local Button = Tab:CreateButton({
+   Name = "sit grab",
+   Callback = function()
+        local plr = game.Players:FindFirstChild(selectedPlrName)
+        if not plr then return end
+        local hrp = plr.Character.HumanoidRootPart
+        local blob = FindBlob()
+        
+
+        blob.BlobmanSeatAndOwnerScript.CreatureGrab:FireServer(
+            blob.LeftDetector,
+            hrp, 
+            blob.LeftDetector.LeftWeld
+        )
+        
+
+        task.wait(0.1)
+        
+
+        local ourCharacter = game.Players.LocalPlayer.Character
+        if ourCharacter then
+            local ourHumanoid = ourCharacter:FindFirstChild("Humanoid")
+            if ourHumanoid then
+                ourHumanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+            
+
+            local ourRoot = ourCharacter:FindFirstChild("HumanoidRootPart")
+            if ourRoot then
+                local bodyVelocity = Instance.new("BodyVelocity")
+                bodyVelocity.Velocity = Vector3.new(0, 50, 0)
+                bodyVelocity.MaxForce = Vector3.new(0, 5000, 0)
+                bodyVelocity.Parent = ourRoot
+                
+                task.delay(0.3, function()
+                    bodyVelocity:Destroy()
+                    
+
+                    task.wait(0.1)
+                    
+
+                    local blobSeat = blob:FindFirstChild("Seat") or blob:FindFirstChildWhichIsA("VehicleSeat")
+                    if blobSeat and ourCharacter:FindFirstChild("Humanoid") then
+
+                        ourCharacter.Humanoid.Sit = true
+                        ourRoot.CFrame = blobSeat.CFrame * CFrame.new(0, 2, 0)
+                    end
+                end)
+            end
+        end
+        
+        local blobPrimary = blob.PrimaryPart or blob:FindFirstChildWhichIsA("BasePart")
+        if blobPrimary then
+            local blobVelocity = Instance.new("BodyVelocity")
+            blobVelocity.Velocity = Vector3.new(0, 50, 0)
+            blobVelocity.MaxForce = Vector3.new(0, 5000, 0)
+            blobVelocity.Parent = blobPrimary
+            
+            task.delay(0.3, function()
+                blobVelocity:Destroy()
+            end)
+        end
+   end,
+})
+local Button = Tab:CreateButton({
+   Name = "простой граб блоб",
+   Callback = function()
+        local plr = game.Players:FindFirstChild(selectedPlrName)
+        if not plr then return end
+        local hrp = plr.Character.HumanoidRootPart
+        local blob = FindBlob()
+        
+        -- Один граб
+        blob.BlobmanSeatAndOwnerScript.CreatureGrab:FireServer(
+            blob.LeftDetector,
+            hrp, 
+            blob.LeftDetector.LeftWeld
+        )
+   end,
+})
+local Button = Tab:CreateButton({
+   Name = "Grab and Drop",
+   Callback = function()
+        local plr = game.Players:FindFirstChild(selectedPlrName)
+        if not plr then return end
+        local hrp = plr.Character.HumanoidRootPart
+        local blob = FindBlob()
+        
+        -- Один граб
+        blob.BlobmanSeatAndOwnerScript.CreatureGrab:FireServer(
+            blob.LeftDetector,
+            hrp, 
+            blob.LeftDetector.LeftWeld
+        )
+        
+        task.wait(-0.00386) -- небольшая задержка между грабом и дропом
+        
+        -- Один дроп
+        blob.BlobmanSeatAndOwnerScript.CreatureDrop:FireServer(
+            blob.LeftDetector.LeftWeld,
+            hrp
+        )
+   end,
+})
+
+local Button = Tab:CreateButton({
+   Name = "клик снос",
+   Callback = function()
+        -- Находим игрока
+        local plr = game.Players:FindFirstChild(selectedPlrName)
+        if not plr then return end
+        if not plr.Character then return end
+        
+        local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        
+        local blob = FindBlob()
+        if not blob then return end
+        
+        -- Грабим игрока
+        blob.BlobmanSeatAndOwnerScript.CreatureGrab:FireServer(
+            blob.LeftDetector,
+            hrp, 
+            blob.LeftDetector.LeftWeld
+        )
+        
+        task.wait(-0.00386)
+        
+        -- Дропаем игрока
+        blob.BlobmanSeatAndOwnerScript.CreatureDrop:FireServer(
+            blob.LeftDetector.LeftWeld,
+            hrp
+        )
+
+        task.wait(-0.00386)
+        -- Запускаем игрока вверх на 500000
+        hrp.AssemblyLinearVelocity = Vector3.new(0, 500000, 0)
+        
+        print("Игрок запущен вверх!")
+   end,
+})
+
+local Toggle = Tab:CreateToggle({
+   Name = "снос",
+   CurrentValue = false,
+   Flag = "Toggle1",
+   Callback = function(Value)
+    loopkick = Value
+    local plr = game.Players:FindFirstChild(selectedPlrName)
+    if not plr then return end
+    if not plr.Character then return end
+    local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local blob = FindBlob()
+    if not blob then return end
+    
+    -- 2. Взлетаем на blobmen на 50
+    local myCharacter = game.Players.LocalPlayer.Character
+    if myCharacter then
+        local myHrp = myCharacter:FindFirstChild("HumanoidRootPart")
+        local blobPrimary = blob.PrimaryPart or blob:FindFirstChildWhichIsA("BasePart")
+        
+        if myHrp and blobPrimary then
+            -- Взлетаем вместе с blobmen
+            myHrp.AssemblyLinearVelocity = Vector3.new(0, 70, 0)
+            blobPrimary.AssemblyLinearVelocity = Vector3.new(0, 70, 0)
+            task.wait(0.2) -- ждем взлета
+        end
+    end
+    
+    -- 1. Сначала Grab
+    blob.BlobmanSeatAndOwnerScript.CreatureGrab:FireServer(
+        blob.LeftDetector,
+        hrp, 
+        blob.LeftDetector.LeftWeld
+    )
+task.wait(0.2)
+    -- 3. Потом Drop
+    blob.BlobmanSeatAndOwnerScript.CreatureDrop:FireServer(
+        blob.LeftDetector.LeftWeld,
+        hrp
+    )
+task.wait(1)
+	    blob.BlobmanSeatAndOwnerScript.CreatureGrab:FireServer(
+        blob.LeftDetector,
+        hrp, 
+        blob.LeftDetector.LeftWeld
+    )
+    task.wait(0.2)
+	    blob.BlobmanSeatAndOwnerScript.CreatureDrop:FireServer(
+        blob.LeftDetector.LeftWeld,
+        hrp
+    )
+	 -- ждем немного
+    
+    -- 4. Дальше Grab, Drop и запуск игрока в цикле
+    while loopkick do
+        -- Грабим игрока
+        blob.BlobmanSeatAndOwnerScript.CreatureGrab:FireServer(
+            blob.LeftDetector,
+            hrp, 
+            blob.LeftDetector.LeftWeld
+        )
+        task.wait(0.03)
+        
+        -- Дропаем игрока
+        blob.BlobmanSeatAndOwnerScript.CreatureDrop:FireServer(
+            blob.LeftDetector.LeftWeld,
+            hrp
+        )
+        task.wait(0.03)
+        
+        -- Запускаем игрока вверх
+        hrp.AssemblyLinearVelocity = Vector3.new(0, 500000, 0)
+    end
+   end,
+})
+
+Tab:CreateToggle({
+   Name = "LoopKick",
+   CurrentValue = false,
+   Flag = "Toggle1",
+   Callback = function(Value)
+    loopkick = Value
+    local plr = game.Players:FindFirstChild(selectedPlrName)
+    if not plr then return end
+    if not plr.Character then return end
+    local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local blob = FindBlob()
+    if not blob then return end
+    
+    
+    task.wait(0.1) -- ждем немного
+    
+    -- 2. Взлетаем на blobmen на 50
+    local myCharacter = game.Players.LocalPlayer.Character
+    if myCharacter then
+        local myHrp = myCharacter:FindFirstChild("HumanoidRootPart")
+        local blobPrimary = blob.PrimaryPart or blob:FindFirstChildWhichIsA("BasePart")
+        
+        if myHrp and blobPrimary then
+            -- Взлетаем вместе с blobmen
+            myHrp.AssemblyLinearVelocity = Vector3.new(0, 50, 0)
+            blobPrimary.AssemblyLinearVelocity = Vector3.new(0, 50, 0)
+            task.wait(0.2) -- ждем взлета
+        end
+    end
+    
+    -- 1. Сначала Grab
+    blob.BlobmanSeatAndOwnerScript.CreatureGrab:FireServer(
+        blob.LeftDetector,
+        hrp, 
+        blob.LeftDetector.LeftWeld
+    )
+task.wait(0.2)
+    -- 3. Потом Drop
+    blob.BlobmanSeatAndOwnerScript.CreatureDrop:FireServer(
+        blob.LeftDetector.LeftWeld,
+        hrp
+    )
+task.wait(1)
+	    blob.BlobmanSeatAndOwnerScript.CreatureGrab:FireServer(
+        blob.LeftDetector,
+        hrp, 
+        blob.LeftDetector.LeftWeld
+    )
+
+	    blob.BlobmanSeatAndOwnerScript.CreatureDrop:FireServer(
+        blob.LeftDetector.LeftWeld,
+        hrp
+    )
+
+    
+    
+    -- 4. Дальше Grab и Drop в цикле
+    while loopkick do
+        -- Грабим игрока
+        blob.BlobmanSeatAndOwnerScript.CreatureGrab:FireServer(
+            blob.LeftDetector,
+            hrp, 
+            blob.LeftDetector.LeftWeld
+        )
+        task.wait(-0.00386)
+        
+        -- Дропаем игрока
+        blob.BlobmanSeatAndOwnerScript.CreatureDrop:FireServer(
+            blob.LeftDetector.LeftWeld,
+            hrp
+        )
+        task.wait(-0.00386)
+    end
+   end,
+})
+game.Players.PlayerAdded:Connect(function()
+Dropdown1:Refresh(GetPlayers())
+end)
+
+game.Players.PlayerRemoving:Connect(function()
+Dropdown1:Refresh(GetPlayers())
+end)
+local Tab = Window:CreateTab("куни", 4483362458) -- Title, Image
+local AntiDeath = false
+Tab:CreateToggle({
+   Name = "anti-fly [DEATH]",
+   CurrentValue = false,
+   Flag = "Toggle123", 
+   Callback = function(Value)
+    AntiDeath = Value
+   end,
+})
+task.spawn(function()
+game:GetService("ReplicatedStorage").GameCorrectionEvents.TeleportToGround.OnClientEvent:Connect(function()
+    if AntiDeath then 
+        game.Players.LocalPlayer.Character.Humanoid.Health = 0
+    end
+end)
+end)
+local Toggle = Tab:CreateToggle({
+   Name = "anti-blob",
+   CurrentValue = false,
+   Flag = "Toggle1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Value)
+          if Value then
+           for _, v in pairs(workspace:GetDescendants()) do
+               if v.Name == "LeftWeld" then
+                   v.Enabled = false
+               elseif v.Name == "LeftAlignOrientation" then
+                   v.Enabled = false
+               elseif v.Name == "RigidConstraint" then
+                   v.Enabled = false
+               elseif v.Name == "RightWeld" then
+                   v.Enabled = false
+               elseif v.Name == "RightAlignOrientation" then
+                   v.Enabled = false
+               end
+           end
+                      if ablob then
+               ablob:Disconnect()
+           end
+                      ablob = workspace.DescendantAdded:Connect(function(v)
+               if v.Name == "LeftWeld" then
+                   v.Enabled = false
+               elseif v.Name == "RigidConstraint" then
+                   v.Enabled = false
+               elseif v.Name == "LeftAlignOrientation" then
+                   v.Enabled = false
+               elseif v.Name == "RightWeld" then
+                   v.Enabled = false
+               elseif v.Name == "RightAlignOrientation" then
+                   v.Enabled = false
+               end
+           end)
+       else
+           if ablob then
+               ablob:Disconnect()
+               ablob = nil
+           end
+        	           for _, v in pairs(workspace:GetDescendants()) do
+               if v.Name == "LeftWeld" then
+                   v.Enabled = true
+               elseif v.Name == "LeftAlignOrientation" then
+                   v.Enabled = true
+               elseif v.Name == "RigidConstraint" then
+                   v.Enabled = true
+               elseif v.Name == "RightWeld" then
+                   v.Enabled = true
+               elseif v.Name == "RightAlignOrientation" then
+                   v.Enabled = true
+               end
+           end
+       end
+   end,
+})
+local Sense = 30
+
+local Massless
+local Toggle = Tab:CreateToggle({
+   Name = "Massless Grab",
+   CurrentValue = false,
+   Flag = "Toggle1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Value)
+if Value then
+Massless = game.Workspace.ChildAdded:Connect(function(r)
+if r.Name == "GrabParts" then
+while game.Workspace:FindFirstChild("GrabParts") do
+wait(0)
+r.DragPart.AlignPosition.Responsiveness = Sense
+r.DragPart.AlignOrientation.Responsiveness = Sense
+r.DragPart.AlignPosition.MaxForce = math.huge
+r.DragPart.AlignPosition.MaxVelocity = math.huge
+r.DragPart.AlignOrientation.MaxTorque = math.huge
+end
+end
+ end)
+else
+Massless:Disconnect()
+Massless = nil
+end
+   end,
+})
+local Slider = Tab:CreateSlider({
+   Name = "Massless sense",
+   Range = {5, 200},
+   Increment = 1,
+   Suffix = "Lines",
+   CurrentValue = 30,
+   Flag = "LagLineSlider",
+   Callback = function(Value)
+       Sense = Value
+   end,
+})
+local Tab = Window:CreateTab("визуал", "rewind")
+local Button = Tab:CreateButton({
+   Name = "Camera Settings",
+   Callback = function()
+        local player = game.Players.LocalPlayer
+        local camera = game.Workspace.CurrentCamera
+        
+        -- Устанавливаем настройки камеры
+        player.CameraMaxZoomDistance = 100
+        player.CameraMode = Enum.CameraMode.Classic
+        
+        -- Устанавливаем FOV
+        camera.FieldOfView = 120
+        
+        print("Настройки камеры применены: MaxZoom=100, Mode=Classic, FOV=120")
+   end,
+})
+local SerTab = Window:CreateTab("Server", "rewind")
+SerTab:CreateButton({
+   Name = "InnerUFO[большая]",
+   Callback = function() local inv = workspace[game.Players.LocalPlayer.Name.."SpawnedInToys"]
+local shurikens = {}
+for i = 1, 11 do
+
+    local args = {
+        "NinjaShuriken",
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(5, 10, 20),
+        Vector3.new(0, 120.19499969482422, 0)
+    }
+    game:GetService("ReplicatedStorage").MenuToys.SpawnToyRemoteFunction:InvokeServer(unpack(args))
+
+    local shuriken = inv:WaitForChild("NinjaShuriken")
+
+    game.ReplicatedStorage.GrabEvents.SetNetworkOwner:FireServer(
+        shuriken["SoundPart"],
+        shuriken.PrimaryPart.CFrame
+    )
+
+            shuriken.PrimaryPart.CFrame = CFrame.new(math.random(0,100),1e9,math.random(0,100))
+            shuriken.Name = i
+            table.insert(shurikens, shuriken)
+
+end
+
+for _, shuriken in ipairs(shurikens) do
+    print(shuriken)
+    game.ReplicatedStorage.PlayerEvents.StickyPartEvent:FireServer(
+            shuriken.StickyPart,
+              workspace.Map.AlwaysHereTweenedObjects.InnerUFO.Object.ObjectModel.Body,
+            CFrame.new(0,1,0,0,0,0,0,0,0,0,0,0)
+         )
+    end
+   -- The function that takes place when the button is pressed
+   end,
+})
+SerTab:CreateButton({
+   Name = "OuterUFO[маленький]",
+   Callback = function() local inv = workspace[game.Players.LocalPlayer.Name.."SpawnedInToys"]
+local shurikens = {}
+for i = 1, 11 do
+
+    local args = {
+        "NinjaShuriken",
+        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(5, 10, 20),
+        Vector3.new(0, 120.19499969482422, 0)
+    }
+    game:GetService("ReplicatedStorage").MenuToys.SpawnToyRemoteFunction:InvokeServer(unpack(args))
+
+    local shuriken = inv:WaitForChild("NinjaShuriken")
+
+    game.ReplicatedStorage.GrabEvents.SetNetworkOwner:FireServer(
+        shuriken["SoundPart"],
+        shuriken.PrimaryPart.CFrame
+    )
+
+            shuriken.PrimaryPart.CFrame = CFrame.new(math.random(0,100),1e9,math.random(0,100))
+            shuriken.Name = i
+            table.insert(shurikens, shuriken)
+
+end
+
+for _, shuriken in ipairs(shurikens) do
+    print(shuriken)
+    game.ReplicatedStorage.PlayerEvents.StickyPartEvent:FireServer(
+            shuriken.StickyPart,
+              workspace.Map.AlwaysHereTweenedObjects.OuterUFO.Object.ObjectModel.Body,
+            CFrame.new(0,1,0,0,0,0,0,0,0,0,0,0)
+         )
+    end
+   -- The function that takes place when the button is pressed
+   end,
+})
+local Tab = Window:CreateTab("Script", 4483362458) -- Title, Image
+local Button = Tab:CreateButton({
+   Name = "infinite yeld",
+   Callback = function() loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+   -- The function that takes place when the button is pressed
+   end,
+})
